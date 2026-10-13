@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>AES + RSA Secure Chat</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Thème Cyber/Neon Dark */
+  color-scheme: dark;
+  --blue: #00d2ff; --blue-l: rgba(0, 210, 255, 0.15); --blue-d: #0088aa;
+  --green: #00ff87; --green-l: rgba(0, 255, 135, 0.15);
+  --amber: #ffb300; --amber-l: rgba(255, 179, 0, 0.15);
+  --red: #ff3366; --red-l: rgba(255, 51, 102, 0.15);
+  --purple: #b026ff; --purple-l: rgba(176, 38, 255, 0.15);
+  
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'Fira Code', monospace;
+  
+  /* Glassmorphism variables */
+  --color-background-primary: rgba(15, 15, 20, 0.65);
+  --color-background-secondary: rgba(25, 25, 35, 0.5);
+  --color-border-tertiary: rgba(255, 255, 255, 0.08);
+  --color-border-secondary: rgba(255, 255, 255, 0.15);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #9ba1a6;
+  --color-text-tertiary: #5f6368;
+}
+
+/* Animations Avancées */
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 10px var(--green); } 50% { opacity: 0.4; box-shadow: 0 0 0px var(--green); } }
+@keyframes travel { 0% { stroke-dashoffset: 200; } 100% { stroke-dashoffset: 0; } }
+@keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes shimmer { 0% { opacity: 0.3; text-shadow: 0 0 0 transparent; } 50% { opacity: 1; text-shadow: 0 0 10px var(--green); } 100% { opacity: 0.3; text-shadow: 0 0 0 transparent; } }
+@keyframes lockBounce { 0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 5px var(--blue)); } 40% { transform: translateY(-4px); filter: drop-shadow(0 0 12px var(--blue)); } 70% { transform: translateY(2px); } }
+@keyframes fadeMsg { from { opacity: 0; transform: translateX(30px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes fadeMsgL { from { opacity: 0; transform: translateX(-30px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes spinBg { to { transform: rotate(360deg); } }
+@keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+/* Body & App Container - "Wow" Effect */
+body {
+  font-family: var(--font-sans);
+  background: #050508;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(0, 210, 255, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(176, 38, 255, 0.08), transparent 25%),
+    linear-gradient(to bottom, #050508, #0a0a10);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+.app {
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  background: rgba(15, 16, 21, 0.7);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Animated Border Glow */
+.app::before {
+  content: "";
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  background: linear-gradient(45deg, var(--blue), transparent 40%, transparent 60%, var(--purple));
+  z-index: -1;
+  border-radius: 26px;
+  opacity: 0.3;
+  animation: float 6s ease-in-out infinite;
+}
+
+/* TABS */
+.tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--color-border-tertiary); margin-bottom: 1.5rem; position: relative; }
+.tab { padding: 12px 20px; font-size: 14px; background: none; border: none; cursor: pointer; color: var(--color-text-secondary); transition: all 0.3s ease; font-weight: 500; border-radius: 8px 8px 0 0; position: relative; overflow: hidden; }
+.tab:hover { color: #fff; background: rgba(255,255,255,0.03); }
+.tab.on { color: var(--blue); text-shadow: 0 0 10px rgba(0, 210, 255, 0.5); }
+.tab.on::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: var(--blue); box-shadow: 0 -2px 10px var(--blue); animation: popIn 0.3s ease; }
+
+/* PANELS */
+.panel { display: none; animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.panel.on { display: block; }
+
+/* ====== CHAT ====== */
+.chat-arena { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chat-side { border: 1px solid var(--color-border-tertiary); border-radius: 16px; overflow: hidden; background: var(--color-background-primary); box-shadow: inset 0 0 20px rgba(0,0,0,0.2); transition: transform 0.3s, box-shadow 0.3s; }
+.chat-side:hover { border-color: rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateY(-2px); }
+.chat-hdr { padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--color-border-tertiary); font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.02); }
+
+/* ==== NOUVEAU STYLE DES AVATARS ==== */
+.avatar { 
+  width: 56px; 
+  height: 56px; 
+  border-radius: 50%; 
+  display: flex; align-items: center; justify-content: center; 
+  flex-shrink: 0; 
+  background-size: cover; 
+  background-position: center;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  cursor: pointer;
+}
+.avatar:hover {
+  transform: scale(1.15) rotate(-5deg);
+}
+.av-a { 
+  background-image: url('1.jpg');
+  border: 2px solid var(--blue);
+  box-shadow: 0 0 15px var(--blue-l), inset 0 0 20px rgba(0,0,0,0.5);
+}
+.av-a:hover {
+  box-shadow: 0 0 25px rgba(0, 210, 255, 0.6);
+  border-color: #fff;
+}
+.av-b { 
+  background-image: url('2.jpg');
+  border: 2px solid var(--green);
+  box-shadow: 0 0 15px var(--green-l), inset 0 0 20px rgba(0,0,0,0.5);
+}
+.av-b:hover {
+  box-shadow: 0 0 25px rgba(0, 255, 135, 0.6);
+  border-color: #fff;
+}
+/* ================================== */
+
+.msgs { height: 250px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+.msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); backdrop-filter: blur(10px); }
+.msg.sent { align-self: flex-end; background: linear-gradient(135deg, var(--blue), var(--blue-d)); color: #fff; border-bottom-right-radius: 4px; animation: fadeMsg 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 5px 15px rgba(0, 210, 255, 0.2); }
+.msg.recv { align-self: flex-start; background: var(--color-background-secondary); border: 1px solid var(--color-border-tertiary); border-bottom-left-radius: 4px; animation: fadeMsgL 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); color: var(--color-text-primary); }
+.msg.sys { align-self: center; font-size: 11px; color: var(--color-text-secondary); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; }
+.typing { display: flex; gap: 4px; align-items: center; padding: 10px 14px; align-self: flex-start; background: var(--color-background-secondary); border-radius: 14px; border-bottom-left-radius: 4px; }
+.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite alternate; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+.chat-foot { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--color-border-tertiary); background: rgba(0,0,0,0.2); }
+.chat-foot input { flex: 1; font-size: 13.5px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-tertiary); color: #fff; border-radius: 8px; padding: 8px 12px; outline: none; transition: all 0.3s; font-family: var(--font-sans); }
+.chat-foot input:focus { border-color: var(--blue); box-shadow: 0 0 10px var(--blue-l); background: rgba(255,255,255,0.1); }
+.send-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; background: var(--blue); color: #000; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); text-transform: uppercase; letter-spacing: 0.5px; }
+.send-btn:hover { transform: translateY(-2px); box-shadow: 0 0 25px rgba(0, 210, 255, 0.6); background: #33dbff; }
+
+/* crypto log (Terminal effect) */
+.clog { background: #0a0a0f; border: 1px solid var(--color-border-tertiary); border-radius: 12px; padding: 14px; font-family: var(--font-mono); font-size: 12px; max-height: 130px; overflow-y: auto; color: #a0a0b0; line-height: 1.7; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+.clog::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 10; opacity: 0.3; }
+.clog .ok { color: var(--green); text-shadow: 0 0 5px rgba(0,255,135,0.4); }
+.clog .hi { color: var(--blue); text-shadow: 0 0 5px rgba(0,210,255,0.4); }
+.clog .warn { color: var(--amber); text-shadow: 0 0 5px rgba(255,179,0,0.4); }
+
+/* ====== VISUAL FLOW ====== */
+.flow-wrap { position: relative; }
+.flow-canvas { width: 100%; display: block; filter: drop-shadow(0 0 10px rgba(255,255,255,0.05)); }
+.flow-controls { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.fc-btn { padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; border: 1px solid var(--color-border-secondary); background: rgba(255,255,255,0.05); color: var(--color-text-primary); transition: all 0.2s; backdrop-filter: blur(5px); }
+.fc-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+.fc-btn.active { background: var(--blue); color: #000; border-color: var(--blue); box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+.phase-label { font-size: 14px; font-weight: 600; color: var(--blue); flex: 1; text-align: right; text-shadow: 0 0 10px var(--blue-l); }
+
+/* ====== STEPS ====== */
+.steps-nav { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+.sn-btn { padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--color-border-tertiary); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; transition: 0.2s; font-weight: 500; }
+.sn-btn:hover { background: var(--blue); color: #000; border-color: var(--blue); box-shadow: 0 0 15px var(--blue-l); }
+.step-pills { display: flex; gap: 8px; flex: 1; justify-content: center; flex-wrap: wrap; }
+.pill { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--color-border-secondary); background: rgba(255,255,255,0.05); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.pill:hover { border-color: var(--blue); color: #fff; transform: scale(1.1); }
+.pill.on { background: var(--blue); color: #000; border-color: var(--blue); animation: popIn 0.4s ease; box-shadow: 0 0 15px rgba(0,210,255,0.6); transform: scale(1.1); }
+.pill.done { background: var(--green-l); color: var(--green); border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,135,0.2); }
+.step-card { border: 1px solid var(--color-border-tertiary); border-radius: 16px; padding: 1.5rem; min-height: 280px; background: linear-gradient(145deg, rgba(30,30,40,0.6), rgba(20,20,30,0.6)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 10px 30px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
+.step-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.step-num { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--blue), var(--purple)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; animation: popIn 0.4s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.step-title { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
+.badge { display: inline-flex; padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 700; margin-left: auto; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+.badge.b { background: rgba(0, 210, 255, 0.15); color: var(--blue); border: 1px solid var(--blue); }
+.badge.g { background: rgba(0, 255, 135, 0.15); color: var(--green); border: 1px solid var(--green); }
+.badge.a { background: rgba(255, 179, 0, 0.15); color: var(--amber); border: 1px solid var(--amber); }
+.step-desc { font-size: 14.5px; color: #b0b5ba; line-height: 1.7; margin-bottom: 16px; }
+
+/* Mac-like Code Window */
+.code { background: #0d0d12; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; color: #e6e6e6; overflow-x: auto; word-break: break-all; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+.code::before { content: "•••"; position: absolute; top: 8px; left: 16px; font-size: 24px; line-height: 0.5; color: var(--color-border-secondary); letter-spacing: 2px; }
+.code { padding-top: 36px; }
+.code .kw { color: var(--purple); font-weight: 500; text-shadow: 0 0 8px rgba(176, 38, 255, 0.4); }
+.code .str { color: var(--green); text-shadow: 0 0 8px rgba(0, 255, 135, 0.4); }
+.code .cm { color: var(--color-text-tertiary); font-style: italic; }
+
+/* ====== INSPECTOR ====== */
+.insp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.insp-card { border: 1px solid var(--color-border-tertiary); border-radius: 16px; padding: 18px; background: linear-gradient(180deg, rgba(30,30,40,0.5), rgba(15,15,20,0.6)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.2); transition: transform 0.3s; }
+.insp-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.15); }
+.insp-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.insp-title::before { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.kv { margin-bottom: 12px; }
+.kl { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; font-weight: 500; }
+.kv-val { font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid var(--color-border-tertiary); padding: 6px 10px; border-radius: 6px; word-break: break-all; color: var(--color-text-primary); }
+.kv-val.live { color: var(--green); animation: shimmer 2s infinite; border-color: rgba(0,255,135,0.2); }
+
+/* status bar */
+.status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; padding: 12px 16px; background: rgba(0, 255, 135, 0.05); border-radius: 12px; border: 1px solid rgba(0, 255, 135, 0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
+.status-txt { font-size: 13.5px; font-weight: 500; color: #fff; flex: 1; letter-spacing: 0.3px; }
+.lock-icon { animation: lockBounce 2.5s ease-in-out infinite; }
+
+/* ====== TEAM SELFIE — above container, glow hugs PNG silhouette ====== */
+@keyframes selfieIn { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.7)) drop-shadow(0 0 20px rgba(0, 210, 255, 0.3)) drop-shadow(0 0 40px rgba(176, 38, 255, 0.2)); }
+  50%       { filter: drop-shadow(0 0 14px rgba(0, 210, 255, 1))  drop-shadow(0 0 30px rgba(0, 210, 255, 0.5)) drop-shadow(0 0 60px rgba(176, 38, 255, 0.4)); }
+}
+
+.page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 850px;
+}
+
+.team-selfie-wrap {
+  margin-bottom: -60px;
+  z-index: 0;
+  animation: selfieIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.team-selfie-img {
+  display: block;
+  height: 160px;
+  width: auto;
+  object-fit: contain;
+  animation: glowPulse 3s ease-in-out infinite;
+  transition: transform 0.4s ease;
+  cursor: pointer;
+}
+
+.team-selfie-img:hover {
+  transform: scale(1.06) translateY(-4px);
+}
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+
+<div class="team-selfie-wrap">
+  <img class="team-selfie-img" src="selfi.png" alt="Si Yassine &amp; Ayhem">
+</div>
+
+<div class="app">
+<h2 style="display:none">AES + RSA Secure Chat — interactive hybrid encryption demo</h2>
+
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+  <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg, var(--blue), var(--purple));display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow: 0 8px 20px rgba(0,210,255,0.3);">
+    <svg class="lock-icon" width="22" height="22" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="8" width="14" height="9" rx="2.5" fill="#fff"/>
+      <path d="M5 8V6a4 4 0 018 0v2" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".8"/>
+      <circle cx="9" cy="12.5" r="1.4" fill="var(--blue-d)"/>
+    </svg>
+  </div>
+  <div>
+    <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:0.5px;text-shadow: 0 2px 10px rgba(255,255,255,0.2);">AES + RSA Secure Chat</div>
+    <div style="font-size:13px;color:var(--color-text-secondary);margin-top:2px;">Chiffrement hybride — démo interactive</div>
+  </div>
+  <div id="key-badge" style="margin-left:auto;padding:6px 14px;border-radius:99px;font-size:12px;font-weight:700;background:rgba(0,255,135,0.1);color:var(--green);border:1px solid var(--green);box-shadow:0 0 15px rgba(0,255,135,0.2);text-transform:uppercase;letter-spacing:1px;">Clés prêtes</div>
+</div>
+
+<div class="status-bar">
+  <div class="status-dot"></div>
+  <div class="status-txt" id="status-txt">Génération des paires RSA-OAEP 2048 bits pour Si Yassine et Ayhem…</div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="showTab('chat',this)">Chat chiffré</button>
+  <button class="tab" onclick="showTab('flow',this)">Flux animé</button>
+  <button class="tab" onclick="showTab('steps',this)">Étapes du protocole</button>
+  <button class="tab" onclick="showTab('inspector',this)">Inspecteur de clés</button>
+</div>
+
+<!-- ===== CHAT ===== -->
+<div class="panel on" id="tab-chat">
+  <div class="chat-arena">
+    <div class="chat-side">
+      <div class="chat-hdr">
+        <!-- Remplacement de l'avatar texte par la photo + agrandissement nom -->
+        <div class="avatar av-a"></div>
+        <span style="font-size: 16px; font-weight: 700; text-shadow: 0 0 8px rgba(255,255,255,0.3);">Si Yassine</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);font-weight:400">expéditrice →</span>
+      </div>
+      <div class="msgs" id="msgs-a">
+        <div class="msg sys">RSA-OAEP 2048 bits prêt</div>
+      </div>
+      <div class="chat-foot">
+        <input id="inp-a" type="text" placeholder="Message de Si Yassine" value="Bonjour Ayhem, canal sécurisé !">
+        <button class="send-btn" onclick="doSend('a')">Envoyer</button>
+      </div>
+    </div>
+    <div class="chat-side">
+      <div class="chat-hdr">
+        <!-- Remplacement de l'avatar texte par la photo + agrandissement nom -->
+        <div class="avatar av-b"></div>
+        <span style="font-size: 16px; font-weight: 700; text-shadow: 0 0 8px rgba(255,255,255,0.3);">Ayhem</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);font-weight:400">← destinataire</span>
+      </div>
+      <div class="msgs" id="msgs-b">
+        <div class="msg sys">RSA-OAEP 2048 bits prêt</div>
+      </div>
+      <div class="chat-foot">
+        <input id="inp-b" type="text" placeholder="Message de Ayhem">
+        <button class="send-btn" onclick="doSend('b')">Envoyer</button>
+      </div>
+    </div>
+  </div>
+  <div class="clog" id="clog"></div>
+</div>
+
+<!-- ===== ANIMATED FLOW ===== -->
+<div class="panel" id="tab-flow">
+  <div style="margin-bottom:12px;font-size:14px;color:var(--color-text-secondary)">Cliquez sur une phase pour voir le flux de chiffrement en action, étape par étape.</div>
+  <canvas id="flow-canvas" width="660" height="340" style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);box-shadow:inset 0 0 20px rgba(0,0,0,0.5);"></canvas>
+  <div class="flow-controls">
+    <button class="fc-btn active" id="btn-p0" onclick="setPhase(0)">1. Clés RSA</button>
+    <button class="fc-btn" id="btn-p1" onclick="setPhase(1)">2. Clé AES</button>
+    <button class="fc-btn" id="btn-p2" onclick="setPhase(2)">3. Chiffrer msg</button>
+    <button class="fc-btn" id="btn-p3" onclick="setPhase(3)">4. Envelopper clé</button>
+    <button class="fc-btn" id="btn-p4" onclick="setPhase(4)">5. Déchiffrer</button>
+    <div class="phase-label" id="phase-lbl">Phase 1 / 5</div>
+  </div>
+</div>
+
+<!-- ===== STEPS ===== -->
+<div class="panel" id="tab-steps">
+  <div class="steps-nav">
+    <button class="sn-btn" onclick="gStep(-1)">←</button>
+    <div class="step-pills" id="pills"></div>
+    <button class="sn-btn" onclick="gStep(1)">→</button>
+  </div>
+  <div class="step-card" id="step-card"></div>
+</div>
+
+<!-- ===== INSPECTOR ===== -->
+<div class="panel" id="tab-inspector">
+  <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:16px;line-height:1.5;">Les clés privées RSA ne quittent jamais le navigateur. Chaque message génère une clé AES éphémère unique.</div>
+  <div class="insp-grid">
+    <div class="insp-card">
+      <div class="insp-title" style="color:var(--blue)">Si Yassine — RSA 2048</div>
+      <div class="kv"><div class="kl">Clé publique (SPKI, base64)</div><div class="kv-val" id="i-apub">…</div></div>
+      <div class="kv"><div class="kl">Clé privée</div><div class="kv-val" style="color:var(--red);border-color:rgba(255,51,102,0.3);">[jamais exposée]</div></div>
+      <div class="kv"><div class="kl">Exposant public e</div><div class="kv-val">65537</div></div>
+    </div>
+    <div class="insp-card">
+      <div class="insp-title" style="color:var(--green)">Session AES-GCM 256</div>
+      <div class="kv"><div class="kl">Clé brute (hex)</div><div class="kv-val live" id="i-araw">—</div></div>
+      <div class="kv"><div class="kl">IV / nonce (hex)</div><div class="kv-val live" id="i-iv">—</div></div>
+      <div class="kv"><div class="kl">Clé AES chiffrée RSA</div><div class="kv-val live" id="i-aenc">—</div></div>
+      <div class="kv"><div class="kl">Tag d'auth GCM</div><div class="kv-val" style="color:var(--color-text-tertiary)">16 octets (inclus dans ciphertext)</div></div>
+    </div>
+    <div class="insp-card">
+      <div class="insp-title" style="color:var(--blue)">Ayhem — RSA 2048</div>
+      <div class="kv"><div class="kl">Clé publique (SPKI, base64)</div><div class="kv-val" id="i-bpub">…</div></div>
+      <div class="kv"><div class="kl">Clé privée</div><div class="kv-val" style="color:var(--red);border-color:rgba(255,51,102,0.3);">[jamais exposée]</div></div>
+      <div class="kv"><div class="kl">Exposant public e</div><div class="kv-val">65537</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const b64=(buf)=>btoa(String.fromCharCode(...new Uint8Array(buf)));
+const hex=(buf)=>Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+let AK,BK,lastLog=[];
+
+function status(t){document.getElementById('status-txt').textContent=t}
+
+function clog(msg,cls=''){
+  const el=document.getElementById('clog');
+  const line=document.createElement('div');
+  if(cls)line.className=cls;
+  line.textContent='› '+msg;
+  el.appendChild(line);
+  el.scrollTop=el.scrollHeight;
+}
+
+async function init(){
+  const p={name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'};
+  [AK,BK]=await Promise.all([
+    crypto.subtle.generateKey(p,true,['encrypt','decrypt']),
+    crypto.subtle.generateKey(p,true,['encrypt','decrypt'])
+  ]);
+  const [ap,bp]=await Promise.all([
+    crypto.subtle.exportKey('spki',AK.publicKey),
+    crypto.subtle.exportKey('spki',BK.publicKey)
+  ]);
+  document.getElementById('i-apub').textContent=b64(ap).slice(0,72)+'…';
+  document.getElementById('i-bpub').textContent=b64(bp).slice(0,72)+'…';
+  status('Si Yassine et Ayhem ont échangé leurs clés publiques RSA — le canal est prêt.');
+  clog('RSA-OAEP 2048 bits — paires Si Yassine & Ayhem générées','ok');
+}
+
+function addMsg(id,txt,cls){
+  const c=document.getElementById(id);
+  const d=document.createElement('div');
+  d.className='msg '+cls;
+  d.textContent=txt;
+  c.appendChild(d);
+  c.scrollTop=c.scrollHeight;
+}
+function addTyping(id){
+  const c=document.getElementById(id);
+  const d=document.createElement('div');
+  d.className='typing';d.id='typing-'+id;
+  d.innerHTML='<span></span><span></span><span></span>';
+  c.appendChild(d);
+  c.scrollTop=c.scrollHeight;
+  return d;
+}
+
+async function doSend(who){
+  const inp=document.getElementById('inp-'+who);
+  const msg=inp.value.trim();
+  if(!msg)return;
+  inp.value='';
+  const sender='msgs-'+who;
+  const recvId='msgs-'+(who==='a'?'b':'a');
+  const recipPub=who==='a'?BK.publicKey:AK.publicKey;
+  const recipPriv=who==='a'?BK.privateKey:AK.privateKey;
+
+  addMsg(sender,msg,'sent');
+  status('Chiffrement AES-GCM en cours…');
+  clog(`"${msg.slice(0,28)}${msg.length>28?'…':''}" → chiffrement`,'hi');
+
+  const aesKey=await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const rawAes=await crypto.subtle.exportKey('raw',aesKey);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},aesKey,new TextEncoder().encode(msg));
+  const encKey=await crypto.subtle.encrypt({name:'RSA-OAEP'},recipPub,rawAes);
+
+  document.getElementById('i-araw').textContent=hex(rawAes).slice(0,48)+'…';
+  document.getElementById('i-iv').textContent=hex(iv);
+  document.getElementById('i-aenc').textContent=b64(encKey).slice(0,48)+'…';
+
+  clog(`AES clé: ${hex(rawAes).slice(0,16)}… IV: ${hex(iv).slice(0,8)}…`);
+  clog(`RSA-OAEP enveloppe la clé AES (${encKey.byteLength} octets)…`,'warn');
+
+  status('Paquet chiffré en transit…');
+  const typing=addTyping(recvId);
+  await new Promise(r=>setTimeout(r,900));
+
+  const decRaw=await crypto.subtle.decrypt({name:'RSA-OAEP'},recipPriv,encKey);
+  const decKey=await crypto.subtle.importKey('raw',decRaw,{name:'AES-GCM'},false,['decrypt']);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},decKey,ct);
+  const decoded=new TextDecoder().decode(plain);
+
+  typing.remove();
+  addMsg(recvId,decoded,'recv');
+  clog(`Déchiffré avec succès ✓ message: "${decoded.slice(0,28)}"`,'ok');
+  status('Message déchiffré et authentifié par Ayhem.');
+}
+
+document.getElementById('inp-a').addEventListener('keydown',e=>e.key==='Enter'&&doSend('a'));
+document.getElementById('inp-b').addEventListener('keydown',e=>e.key==='Enter'&&doSend('b'));
+
+/* ====== FLOW CANVAS ====== */
+const PHASES=[
+  {label:'Phase 1/5 — Génération des clés RSA',desc:'Si Yassine et Ayhem génèrent chacun une paire RSA. La clé publique est partagée, la privée reste secrète.'},
+  {label:'Phase 2/5 — Génération clé AES éphémère',desc:'Pour chaque message, une clé AES-256 aléatoire est créée. Elle est détruite après usage.'},
+  {label:'Phase 3/5 — Chiffrement du message (AES-GCM)',desc:'Le message est chiffré avec la clé AES + un IV aléatoire de 12 octets. AES-GCM ajoute un tag d\'authentification.'},
+  {label:'Phase 4/5 — Enveloppement RSA de la clé AES',desc:'La clé AES est chiffrée avec la clé publique RSA de Ayhem. Seul Ayhem peut la déchiffrer.'},
+  {label:'Phase 5/5 — Déchiffrement chez Ayhem',desc:'Ayhem utilise sa clé privée RSA pour retrouver la clé AES, puis déchiffre le message.'},
+];
+let curPhase=0,raf=0,t=0;
+
+function setPhase(p){
+  curPhase=p;t=0;
+  document.querySelectorAll('.fc-btn').forEach((b,i)=>{b.classList.toggle('active',i===p)});
+  document.getElementById('phase-lbl').textContent=PHASES[p].label;
+  cancelAnimationFrame(raf);
+  drawFlow();
+}
+
+function drawFlow(){
+  const cv=document.getElementById('flow-canvas');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  /* Force dark colors for the canvas to match the "Wow" theme */
+  const BG='rgba(0,0,0,0)';
+  const FG='#e6e6e6';
+
+  ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+
+  const nodes={
+    alice:{x:80,y:170,label:'Si Yassine',color:'#00d2ff',light:'rgba(0, 210, 255, 0.15)'},
+    aes:{x:250,y:170,label:'AES-256',color:'#00ff87',light:'rgba(0, 255, 135, 0.15)'},
+    msg:{x:250,y:80,label:'Message',color:'#b0b5ba',light:'rgba(255,255,255,0.1)'},
+    pkt:{x:420,y:170,label:'Paquet chiffré',color:'#ffb300',light:'rgba(255, 179, 0, 0.15)'},
+    bob:{x:590,y:170,label:'Ayhem',color:'#00ff87',light:'rgba(0, 255, 135, 0.15)'},
+    rsa:{x:420,y:80,label:'RSA pub Ayhem',color:'#00d2ff',light:'rgba(0, 210, 255, 0.15)'},
+  };
+
+  function drawNode(n,alpha=1){
+    const nd=nodes[n];
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=nd.light;
+    ctx.strokeStyle=nd.color;
+    ctx.lineWidth=1.5;
+    
+    ctx.shadowColor=nd.color;
+    ctx.shadowBlur=10;
+    
+    roundRect(ctx,nd.x-54,nd.y-18,108,36,8);
+    ctx.fill();ctx.stroke();
+    
+    ctx.shadowBlur=0;
+    ctx.fillStyle=nd.color;
+    ctx.font='600 12px "Inter", sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(nd.label,nd.x,nd.y);
+    ctx.globalAlpha=1;
+  }
+
+  function arrow(ax,ay,bx,by,color,progress=1,dashed=false){
+    const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);
+    const ex=ax+dx*progress,ey=ay+dy*progress;
+    ctx.save();
+    
+    ctx.shadowColor=color;
+    ctx.shadowBlur=8;
+    ctx.strokeStyle=color;ctx.lineWidth=2;
+    if(dashed)ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.setLineDash([]);
+    if(progress>.9){
+      const ang=Math.atan2(dy,dx);
+      ctx.fillStyle=color;
+      ctx.beginPath();
+      ctx.moveTo(bx,by);
+      ctx.lineTo(bx-9*Math.cos(ang-0.4),by-9*Math.sin(ang-0.4));
+      ctx.lineTo(bx-9*Math.cos(ang+0.4),by-9*Math.sin(ang+0.4));
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function label(x,y,txt,color){
+    ctx.fillStyle=color;ctx.font='12px "Inter", sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(txt,x,y);
+  }
+
+  t+=0.018;
+  const p=Math.min(1,(t%2)*0.8);
+
+  const phases=[
+    ()=>{
+      drawNode('alice');drawNode('bob',.35);
+      const px=Math.min(1,t*0.7);
+      arrow(nodes.alice.x+54,nodes.alice.y-8,nodes.bob.x-54,nodes.bob.y-8,'#00d2ff',px);
+      arrow(nodes.bob.x-54,nodes.bob.y+8,nodes.alice.x+54,nodes.alice.y+8,'#00ff87',px,true);
+      label(335,140,'pub RSA Ayhem →','#00d2ff');
+      label(335,202,'pub RSA Si Yassine →','#00ff87');
+      ctx.fillStyle=FG;ctx.font='13px "Inter", sans-serif';ctx.textAlign='center';
+      ctx.fillText('Échange de clés publiques',330,260);
+      ctx.fillStyle='#9ba1a6';
+      ctx.fillText('(clés privées restent secrètes)',330,278);
+    },
+    ()=>{
+      drawNode('alice');drawNode('aes',0.5+0.5*Math.min(1,t));
+      const px=Math.min(1,t*0.9);
+      arrow(nodes.alice.x+54,nodes.alice.y,nodes.aes.x-54,nodes.aes.y,'#00ff87',px);
+      label(165,148,'génère clé','#00ff87');
+      if(t>0.6){
+        ctx.fillStyle='rgba(0, 255, 135, 0.1)';ctx.strokeStyle='#00ff87';ctx.lineWidth=1;
+        roundRect(ctx,190,210,120,44,8);ctx.fill();ctx.stroke();
+        ctx.fillStyle='#00ff87';ctx.font='600 12px "Inter", sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('AES-256 key',250,228);
+        ctx.fillStyle='#9ba1a6';ctx.font='11px "Inter", sans-serif';
+        ctx.fillText('256 bits aléatoires',250,242);
+      }
+      ctx.fillStyle=FG;ctx.font='13px "Inter", sans-serif';ctx.textAlign='center';
+      ctx.fillText('Chaque message → nouvelle clé AES éphémère',330,290);
+    },
+    ()=>{
+      drawNode('msg');drawNode('aes');drawNode('alice',0.5);
+      const px=Math.min(1,t*0.8);
+      arrow(nodes.msg.x,nodes.msg.y+18,nodes.aes.x,nodes.aes.y-18,'#b0b5ba',px);
+      if(t>0.5){
+        ctx.fillStyle='rgba(255, 179, 0, 0.1)';ctx.strokeStyle='#ffb300';ctx.lineWidth=1;
+        roundRect(ctx,190,230,120,40,8);ctx.fill();ctx.stroke();
+        ctx.fillStyle='#ffb300';ctx.font='600 12px "Inter", sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('Ciphertext AES',250,246);
+        ctx.fillStyle='#ffcc4d';ctx.font='11px "Inter", sans-serif';
+        ctx.fillText('+ tag auth 16 oct.',250,260);
+      }
+      label(220,125,'msg clair','#b0b5ba');
+      label(220,158,'→ AES-GCM','#00ff87');
+      ctx.fillStyle=FG;ctx.font='13px "Inter", sans-serif';ctx.textAlign='center';
+      ctx.fillText('IV aléatoire 12 octets + clé AES → message illisible',330,295);
+    },
+    ()=>{
+      drawNode('aes');drawNode('rsa');drawNode('pkt',0.5+0.5*Math.min(1,t));
+      const px=Math.min(1,t*0.85);
+      arrow(nodes.aes.x+54,nodes.aes.y,nodes.pkt.x-54,nodes.pkt.y,'#ffb300',px);
+      arrow(nodes.rsa.x,nodes.rsa.y+18,nodes.pkt.x,nodes.pkt.y-18,'#00d2ff',px*0.8,true);
+      label(335,148,'RSA-OAEP chiffre clé AES','#00d2ff');
+      label(335,192,'clé AES + msg chiffré','#ffb300');
+      ctx.fillStyle=FG;ctx.font='13px "Inter", sans-serif';ctx.textAlign='center';
+      ctx.fillText('La clé AES est "emballée" dans RSA — seul Ayhem peut l\'ouvrir',330,295);
+    },
+    ()=>{
+      drawNode('pkt');drawNode('bob');
+      const px=Math.min(1,t*0.8);
+      arrow(nodes.pkt.x+54,nodes.pkt.y,nodes.bob.x-54,nodes.bob.y,'#ffb300',px);
+      if(t>0.7){
+        ctx.fillStyle='rgba(0, 255, 135, 0.1)';ctx.strokeStyle='#00ff87';ctx.lineWidth=1;
+        roundRect(ctx,510,230,130,44,8);ctx.fill();ctx.stroke();
+        ctx.fillStyle='#00ff87';ctx.font='600 12px "Inter", sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('Message en clair',575,248);
+        ctx.fillStyle='#80ffc3';ctx.font='11px "Inter", sans-serif';
+        ctx.fillText('authentifié ✓',575,262);
+      }
+      label(500,148,'clé priv RSA → clé AES','#ff3366');
+      label(500,162,'AES-GCM → déchiffre','#00ff87');
+      ctx.fillStyle=FG;ctx.font='13px "Inter", sans-serif';ctx.textAlign='center';
+      ctx.fillText('Ayhem déchiffre en 2 étapes : RSA → clé AES → message',330,300);
+    }
+  ];
+
+  phases[curPhase]();
+
+  ctx.fillStyle='#9ba1a6';ctx.font='12px "Inter", sans-serif';ctx.textAlign='left';
+  ctx.fillText(PHASES[curPhase].desc,20,325);
+
+  raf=requestAnimationFrame(drawFlow);
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+/* ====== STEPS ====== */
+const STEPS=[
+  {n:'1',title:'Génération des clés RSA',badge:{l:'Asymétrique',c:'b'},
+   desc:'Si Yassine et Ayhem génèrent chacun une paire RSA-OAEP 2048 bits. La clé publique est partageable librement. La clé privée est secrète et ne quitte jamais l\'appareil.',
+   code:`<span class="cm">// Web Crypto API — RSA-OAEP 2048 bits</span>
+<span class="kw">const</span> keyPair = <span class="kw">await</span> crypto.subtle.generateKey({
+  name: <span class="str">"RSA-OAEP"</span>,
+  modulusLength: <span class="str">2048</span>,
+  publicExponent: <span class="kw">new</span> Uint8Array([1, 0, 1]), <span class="cm">// e = 65537</span>
+  hash: <span class="str">"SHA-256"</span>
+}, <span class="kw">true</span>, [<span class="str">"encrypt"</span>, <span class="str">"decrypt"</span>]);
+
+<span class="cm">// keyPair.publicKey  → partagée (SPKI format)</span>
+<span class="cm">// keyPair.privateKey → gardée secrète (PKCS8)</span>`},
+  {n:'2',title:'Clé AES-256 éphémère',badge:{l:'Symétrique',c:'g'},
+   desc:'Pour chaque message, on génère une clé AES-256 aléatoire + un IV (nonce) de 12 octets. Cette clé est détruite après usage — c\'est le principe du "perfect forward secrecy".',
+   code:`<span class="cm">// Nouvelle clé AES par message (forward secrecy)</span>
+<span class="kw">const</span> aesKey = <span class="kw">await</span> crypto.subtle.generateKey(
+  { name: <span class="str">"AES-GCM"</span>, length: <span class="str">256</span> },
+  <span class="kw">true</span>, [<span class="str">"encrypt"</span>, <span class="str">"decrypt"</span>]
+);
+
+<span class="cm">// IV aléatoire — 12 octets, unique par message</span>
+<span class="kw">const</span> iv = crypto.getRandomValues(<span class="kw">new</span> Uint8Array(<span class="str">12</span>));`},
+  {n:'3',title:'Chiffrement AES-GCM',badge:{l:'AES-GCM',c:'g'},
+   desc:'Le message est chiffré avec AES-GCM (mode Galois/Counter). Ce mode est AEAD — il garantit à la fois la confidentialité et l\'authenticité. Le tag GCM de 16 octets détecte toute altération.',
+   code:`<span class="kw">const</span> encoded = <span class="kw">new</span> TextEncoder().encode(message);
+
+<span class="cm">// Chiffrement + génération du tag d'auth (16 oct.)</span>
+<span class="kw">const</span> ciphertext = <span class="kw">await</span> crypto.subtle.encrypt(
+  { name: <span class="str">"AES-GCM"</span>, iv: iv },
+  aesKey,
+  encoded
+);
+<span class="cm">// ciphertext = données chiffrées + 16 oct. de tag</span>
+<span class="cm">// len(ciphertext) = len(msg) + 16</span>`},
+  {n:'4',title:'Enveloppement RSA-OAEP',badge:{l:'RSA-OAEP',c:'b'},
+   desc:'La clé AES (32 octets) est chiffrée avec la clé publique RSA du destinataire. OAEP (Optimal Asymmetric Encryption Padding) avec SHA-256 protège contre les attaques de type oracle de rembourrage.',
+   code:`<span class="cm">// Exporter la clé AES en bytes bruts</span>
+<span class="kw">const</span> rawAes = <span class="kw">await</span> crypto.subtle.exportKey(<span class="str">"raw"</span>, aesKey);
+<span class="cm">// rawAes → 32 octets (256 bits)</span>
+
+<span class="cm">// Chiffrer avec clé publique RSA du destinataire</span>
+<span class="kw">const</span> wrappedKey = <span class="kw">await</span> crypto.subtle.encrypt(
+  { name: <span class="str">"RSA-OAEP"</span> },
+  recipientPublicKey, <span class="cm">// clé pub du destinataire</span>
+  rawAes
+);
+<span class="cm">// wrappedKey → 256 octets (RSA 2048 = 256 oct.)</span>`},
+  {n:'5',title:'Déchiffrement chez Ayhem',badge:{l:'Déchiffrement',c:'g'},
+   desc:'Ayhem reçoit {ciphertext, wrappedKey, iv}. Il utilise sa clé privée RSA pour extraire la clé AES, puis déchiffre le message. GCM vérifie automatiquement l\'intégrité.',
+   code:`<span class="cm">// Étape 1 : déchiffrer la clé AES avec clé privée RSA</span>
+<span class="kw">const</span> rawAes = <span class="kw">await</span> crypto.subtle.decrypt(
+  { name: <span class="str">"RSA-OAEP"</span> },
+  myPrivateKey, wrappedKey
+);
+
+<span class="cm">// Étape 2 : importer la clé AES</span>
+<span class="kw">const</span> aesKey = <span class="kw">await</span> crypto.subtle.importKey(
+  <span class="str">"raw"</span>, rawAes, { name: <span class="str">"AES-GCM"</span> }, <span class="kw">false</span>, [<span class="str">"decrypt"</span>]
+);
+
+<span class="cm">// Étape 3 : déchiffrer + vérifier le tag GCM</span>
+<span class="kw">const</span> plain = <span class="kw">await</span> crypto.subtle.decrypt(
+  { name: <span class="str">"AES-GCM"</span>, iv }, aesKey, ciphertext
+);
+<span class="kw">const</span> message = <span class="kw">new</span> TextDecoder().decode(plain);`},
+];
+
+let curStep=0;
+function renderSteps(){
+  const pills=document.getElementById('pills');
+  pills.innerHTML=STEPS.map((s,i)=>`<div class="pill ${i===curStep?'on':i<curStep?'done':''}" onclick="gStep2(${i})">${s.n}</div>`).join('');
+  const s=STEPS[curStep];
+  document.getElementById('step-card').innerHTML=`
+<div class="step-top">
+  <div class="step-num">${s.n}</div>
+  <div class="step-title">${s.title}</div>
+  <span class="badge ${s.badge.c}">${s.badge.l}</span>
+</div>
+<div class="step-desc">${s.desc}</div>
+<div class="code">${s.code}</div>
+<div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+  <span style="font-size:12px;color:var(--color-text-tertiary);font-weight:500;">Étape ${curStep+1} / ${STEPS.length}</span>
+  ${curStep<STEPS.length-1?`<button class="sn-btn" onclick="gStep(1)">Suivant →</button>`:'<span style="font-size:13px;font-weight:600;color:var(--green);text-shadow:0 0 10px rgba(0,255,135,0.4);">Protocole complet ✓</span>'}
+</div>`;
+}
+function gStep(d){curStep=Math.max(0,Math.min(STEPS.length-1,curStep+d));renderSteps()}
+function gStep2(i){curStep=i;renderSteps()}
+renderSteps();
+
+/* TABS */
+function showTab(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('tab-'+id).classList.add('on');
+  btn.classList.add('on');
+  if(id==='flow'){cancelAnimationFrame(raf);t=0;drawFlow();}
+  else cancelAnimationFrame(raf);
+}
+
+setPhase(0);
+init();
+</script>
+</div>
+</body>
+</html>
